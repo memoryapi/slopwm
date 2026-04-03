@@ -11,9 +11,11 @@ add_executable(slopwm WIN32
     src/WindowManager.cpp
     src/Monitor.cpp
     src/Window.cpp
+    src/TrayManager.cpp
+    res/resource.rc
 )
 
-target_include_directories(slopwm PRIVATE src)
+target_include_directories(slopwm PRIVATE src res)
 
 # Add strict warnings (MSVC)
 if(MSVC)
@@ -25,4 +27,5 @@ target_link_libraries(slopwm PRIVATE
     User32.lib 
     Gdi32.lib 
     Dwmapi.lib
+    Shell32.lib
 )

@@ -1,8 +1,9 @@
 #include "Utils.hpp"
 #include "WindowManager.hpp"
+#include "TrayManager.hpp"
 #include <windows.h>
 
-int WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/,
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/,
                    LPSTR /*pCmdLine*/, int /*nCmdShow*/) {
   auto &wm = WindowManager::getInstance();
 
@@ -15,6 +16,8 @@ int WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/,
   }
 
   wm.initialize();
+
+  TrayManager tray(hInstance);
 
   // Register Hotkeys
   // 1: Alt + Shift + Left
