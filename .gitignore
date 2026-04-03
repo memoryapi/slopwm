@@ -1,0 +1,25 @@
+# Build directory
+/build/
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Visual Studio
+.vs/
+out/
+*.sln
+*.vcxproj
+*.vcxproj.*
+*.suo
+
+# Temp and logs
+*.log
+*.tmp
