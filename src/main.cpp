@@ -44,6 +44,8 @@ int WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/,
   RegisterHotKey(NULL, 3, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, 'E');
   // 6: Alt + Shift + F (Toggle Fullscreen Column)
   RegisterHotKey(NULL, 6, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, 'F');
+  // 7: Alt + Shift + M (Move window to next monitor)
+  RegisterHotKey(NULL, 7, MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, 'M');
 
   MSG msg = {};
   while (GetMessage(&msg, NULL, 0, 0)) {

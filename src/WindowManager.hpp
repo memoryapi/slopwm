@@ -19,6 +19,8 @@ public:
     void onWindowDestroyed(HWND hwnd);
     void onWindowFocused(HWND hwnd);
 
+    void moveFocusedWindowToNextMonitor();
+
 private:
     WindowManager() = default;
     ~WindowManager() = default;

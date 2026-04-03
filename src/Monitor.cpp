@@ -20,11 +20,12 @@ void Monitor::addWindow(std::shared_ptr<Window> win) {
     }
 }
 
-void Monitor::removeWindow(HWND hwnd) {
+std::shared_ptr<Window> Monitor::removeWindow(HWND hwnd) {
     auto it = std::find_if(windows.begin(), windows.end(), [hwnd](const std::shared_ptr<Window>& w) {
         return w->getHwnd() == hwnd;
     });
     if (it != windows.end()) {
+        std::shared_ptr<Window> removed = *it;
         windows.erase(it);
         // clamp focusedIndex
         if (windows.empty()) {
@@ -35,7 +36,9 @@ void Monitor::removeWindow(HWND hwnd) {
             setLayout();
             windows[focusedIndex]->focus();
         }
+        return removed;
     }
+    return nullptr;
 }
 
 bool Monitor::hasWindow(HWND hwnd) const {

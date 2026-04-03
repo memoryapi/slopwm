@@ -94,6 +94,13 @@ bool WindowManager::handleHotkey(int hotkeyId) {
             return true;
         }
     }
+    
+    // Window manager level hotkeys
+    if (hotkeyId == 7) {
+        moveFocusedWindowToNextMonitor();
+        return true;
+    }
+
     return false;
 }
 
@@ -188,5 +195,25 @@ void WindowManager::onWindowFocused(HWND hwnd) {
     // but eventually become manageable and steal foreground.
     if (!tracked) {
         onWindowCreated(hwnd, false);
+    }
+}
+
+void WindowManager::moveFocusedWindowToNextMonitor() {
+    if (monitors.size() <= 1) return;
+
+    HWND fg = GetForegroundWindow();
+    if (!fg) return;
+
+    for (size_t i = 0; i < monitors.size(); ++i) {
+        if (monitors[i].hasWindow(fg)) {
+            // Found the monitor this window belongs to
+            auto win = monitors[i].removeWindow(fg);
+            if (win) {
+                // Move to next monitor
+                size_t nextIndex = (i + 1) % monitors.size();
+                monitors[nextIndex].addWindow(win);
+            }
+            break;
+        }
     }
 }

@@ -12,7 +12,7 @@ public:
     RECT getWorkArea() const { return workArea; }
 
     void addWindow(std::shared_ptr<Window> win);
-    void removeWindow(HWND hwnd);
+    std::shared_ptr<Window> removeWindow(HWND hwnd);
     bool hasWindow(HWND hwnd) const;
 
     // Viewport control
