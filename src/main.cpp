@@ -7,13 +7,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/,
                    LPSTR /*pCmdLine*/, int /*nCmdShow*/) {
   auto &wm = WindowManager::getInstance();
 
-  // Attempt to attach a console so we can see std::println outputs
-  if (AllocConsole()) {
-    FILE *fp;
-    freopen_s(&fp, "CONOUT$", "w", stdout);
-    freopen_s(&fp, "CONOUT$", "w", stderr);
-    utils::debugLog("SlopWM Console Started.");
-  }
+  // Attempt to allocate a console so we can see std::println outputs
+  utils::setupConsole();
 
   wm.initialize();
 
