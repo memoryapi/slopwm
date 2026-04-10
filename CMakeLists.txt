@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_executable(slopwm WIN32
     src/main.cpp
     src/WindowManager.cpp
+    src/Keybindings.cpp
     src/Monitor.cpp
     src/Window.cpp
     src/TrayManager.cpp

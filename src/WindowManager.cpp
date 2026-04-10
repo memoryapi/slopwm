@@ -66,8 +66,7 @@ void WindowManager::shutdown() {
     monitors.clear();
 }
 
-bool WindowManager::handleHotkey(int hotkeyId) {
-    // 1 = Scroll Left, 2 = Scroll Right
+bool WindowManager::handleAction(Action action) {
     HWND fg = GetForegroundWindow();
     Monitor* m = getMonitorForWindow(fg);
     
@@ -77,26 +76,26 @@ bool WindowManager::handleHotkey(int hotkeyId) {
     }
 
     if (m) {
-        if (hotkeyId == 1 || hotkeyId == 11) {
+        if (action == Action::ScrollLeft) {
             m->scroll(-1);
             return true;
-        } else if (hotkeyId == 2 || hotkeyId == 12) {
+        } else if (action == Action::ScrollRight) {
             m->scroll(1);
             return true;
-        } else if (hotkeyId == 4 || hotkeyId == 14) {
+        } else if (action == Action::MoveWindowLeft) {
             m->moveFocusedWindow(-1);
             return true;
-        } else if (hotkeyId == 5 || hotkeyId == 15) {
+        } else if (action == Action::MoveWindowRight) {
             m->moveFocusedWindow(1);
             return true;
-        } else if (hotkeyId == 6) {
+        } else if (action == Action::ToggleFullscreen) {
             m->toggleFullscreenOnFocused();
             return true;
         }
     }
     
     // Window manager level hotkeys
-    if (hotkeyId == 7) {
+    if (action == Action::MoveToNextMonitor) {
         moveFocusedWindowToNextMonitor();
         return true;
     }

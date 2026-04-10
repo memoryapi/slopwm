@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "Monitor.hpp"
+#include "Keybindings.hpp"
 
 class WindowManager {
 public:
@@ -13,7 +14,7 @@ public:
 
     void initialize();
     void shutdown();
-    bool handleHotkey(int hotkeyId);
+    bool handleAction(Action action);
 
     void onWindowCreated(HWND hwnd, bool isStartup = false);
     void onWindowDestroyed(HWND hwnd);
