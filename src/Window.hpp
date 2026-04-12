@@ -19,14 +19,8 @@ public:
 
     bool focus() const;
 
-    float getWidthScale() const { return widthScale; }
-    void toggleFullscreen() { 
-        widthScale = (widthScale > 0.5f) ? 0.5f : 1.0f; 
-    }
-
 private:
     HWND hwnd;
-    float widthScale = 0.5f;
     // Store original state to restore when WM exits
     RECT originalRect;
     LONG originalStyle;

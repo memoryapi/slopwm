@@ -82,11 +82,35 @@ bool WindowManager::handleAction(Action action) {
         } else if (action == Action::ScrollRight) {
             m->scroll(1);
             return true;
+        } else if (action == Action::ScrollUp) {
+            m->scrollVertical(-1);
+            return true;
+        } else if (action == Action::ScrollDown) {
+            m->scrollVertical(1);
+            return true;
         } else if (action == Action::MoveWindowLeft) {
             m->moveFocusedWindow(-1);
             return true;
         } else if (action == Action::MoveWindowRight) {
             m->moveFocusedWindow(1);
+            return true;
+        } else if (action == Action::MoveWindowUp) {
+            m->moveFocusedWindowVertical(-1);
+            return true;
+        } else if (action == Action::MoveWindowDown) {
+            m->moveFocusedWindowVertical(1);
+            return true;
+        } else if (action == Action::ConsumeOrExpelLeft) {
+            m->consumeOrExpelLeft();
+            return true;
+        } else if (action == Action::ConsumeOrExpelRight) {
+            m->consumeOrExpelRight();
+            return true;
+        } else if (action == Action::ConsumeIntoColumn) {
+            m->consumeIntoColumn();
+            return true;
+        } else if (action == Action::ExpelFromColumn) {
+            m->expelFromColumn();
             return true;
         } else if (action == Action::ToggleFullscreen) {
             m->toggleFullscreenOnFocused();

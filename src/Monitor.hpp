@@ -4,6 +4,11 @@
 #include <memory>
 #include "Window.hpp"
 
+struct Column {
+    std::vector<std::shared_ptr<Window>> windows;
+    float widthScale = 0.5f;
+};
+
 class Monitor {
 public:
     Monitor(HMONITOR hmon, RECT workArea);
@@ -16,20 +21,29 @@ public:
     bool hasWindow(HWND hwnd) const;
 
     // Viewport control
-    void scroll(int deltaIndex); // e.g. +1 to scroll right, -1 to scroll left
-    void moveFocusedWindow(int deltaIndex); // e.g. +1 to move right, -1 to move left
+    void scroll(int deltaColumn); 
+    void moveFocusedWindow(int deltaColumn);
+    void scrollVertical(int deltaRow);
+    void moveFocusedWindowVertical(int deltaRow);
+
+    void consumeOrExpelLeft();
+    void consumeOrExpelRight();
+    void consumeIntoColumn();
+    void expelFromColumn();
+
     void toggleFullscreenOnFocused();
     bool setFocusedWindow(HWND hwnd);
     void setLayout();
 
-    const std::vector<std::shared_ptr<Window>>& getWindows() const { return windows; }
+    std::vector<std::shared_ptr<Window>> getWindows() const;
 
 private:
     HMONITOR hmon;
     RECT workArea;
-    std::vector<std::shared_ptr<Window>> windows;
+    std::vector<Column> columns;
     
     // Viewport relative to virtual projection coordinate
-    int focusedIndex = 0;
+    int focusedColumn = 0;
+    int focusedRow = 0;
     float viewportOffset = 0.0f;
 };
