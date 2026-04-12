@@ -79,6 +79,17 @@ void KeybindingManager::initializeDefaults() {
   addBinding({modDefault, 'R'}, Action::SwitchPresetColumnWidth);
   addBinding({modMove, 'R'}, Action::SwitchPresetWindowHeight);
 
+  // Workspaces
+  addBinding({modDefault, VK_NEXT}, Action::FocusWorkspaceDown);
+  addBinding({modDefault, VK_PRIOR}, Action::FocusWorkspaceUp);
+  addBinding({modDefault, 'U'}, Action::FocusWorkspaceDown);
+  addBinding({modDefault, 'I'}, Action::FocusWorkspaceUp);
+  addBinding({modDefault, VK_TAB}, Action::FocusWorkspacePrevious);
+  addBinding({modMove, VK_NEXT}, Action::MoveColumnToWorkspaceDown);
+  addBinding({modMove, VK_PRIOR}, Action::MoveColumnToWorkspaceUp);
+  addBinding({modMove, 'U'}, Action::MoveColumnToWorkspaceDown);
+  addBinding({modMove, 'I'}, Action::MoveColumnToWorkspaceUp);
+
   // Other actions
   addBinding({modDefault, 'E'}, Action::Exit);
   addBinding({modDefault, 'F'}, Action::ToggleFullscreen);

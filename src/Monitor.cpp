@@ -15,9 +15,17 @@ static float getNextPresetScale(float currentScale) {
     return PRESET_SCALES[0];
 }
 
-Monitor::Monitor(HMONITOR hmon, RECT workArea) : hmon(hmon), workArea(workArea) {}
+Monitor::Monitor(HMONITOR hmon, RECT workArea) : hmon(hmon), workArea(workArea) {
+    workspaces.push_back(Workspace{});
+}
 
 void Monitor::addWindow(std::shared_ptr<Window> win) {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (!hasWindow(win->getHwnd())) {
         win->setHeightScale(1.0f);
         Column newCol;
@@ -34,64 +42,18 @@ void Monitor::addWindow(std::shared_ptr<Window> win) {
         }
         setLayout();
         columns[focusedColumn].windows[focusedRow]->focus();
+        cleanupEmptyWorkspaces();
     }
 }
 
-std::shared_ptr<Window> Monitor::removeWindow(HWND hwnd) {
-    for (size_t c = 0; c < columns.size(); ++c) {
-        auto& col = columns[c];
-        auto it = std::find_if(col.windows.begin(), col.windows.end(), [hwnd](const std::shared_ptr<Window>& w) {
-            return w->getHwnd() == hwnd;
-        });
-        
-        if (it != col.windows.end()) {
-            std::shared_ptr<Window> removed = *it;
-            col.windows.erase(it);
-            
-            if (col.windows.empty()) {
-                columns.erase(columns.begin() + c);
-                // Adjust focused column
-                if (columns.empty()) {
-                    focusedColumn = 0;
-                    focusedRow = 0;
-                    viewportOffset = 0.0f;
-                    return removed;
-                } else {
-                    focusedColumn = std::clamp<int>(focusedColumn, 0, static_cast<int>(columns.size()) - 1);
-                }
-            } else if (static_cast<int>(c) == focusedColumn) {
-                // Adjust focused row if in the same column
-                focusedRow = std::clamp<int>(focusedRow, 0, static_cast<int>(columns[focusedColumn].windows.size()) - 1);
-            }
-            
-            setLayout();
-            columns[focusedColumn].windows[focusedRow]->focus();
-            return removed;
-        }
-    }
-    return nullptr;
-}
-
-bool Monitor::hasWindow(HWND hwnd) const {
-    for (const auto& col : columns) {
-        for (const auto& win : col.windows) {
-            if (win->getHwnd() == hwnd) return true;
-        }
-    }
-    return false;
-}
-
-std::vector<std::shared_ptr<Window>> Monitor::getWindows() const {
-    std::vector<std::shared_ptr<Window>> all;
-    for (const auto& col : columns) {
-        for (const auto& win : col.windows) {
-            all.push_back(win);
-        }
-    }
-    return all;
-}
 
 void Monitor::scroll(int deltaColumn) {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty()) return;
     int newCol = std::clamp<int>(focusedColumn + deltaColumn, 0, static_cast<int>(columns.size()) - 1);
     if (newCol != focusedColumn) {
@@ -103,6 +65,12 @@ void Monitor::scroll(int deltaColumn) {
 }
 
 void Monitor::moveFocusedWindow(int deltaColumn) {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty()) return;
     int newCol = focusedColumn + deltaColumn;
     if (newCol >= 0 && newCol < static_cast<int>(columns.size())) {
@@ -114,6 +82,12 @@ void Monitor::moveFocusedWindow(int deltaColumn) {
 }
 
 void Monitor::scrollVertical(int deltaRow) {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty()) return;
     auto& col = columns[focusedColumn];
     int newRow = std::clamp<int>(focusedRow + deltaRow, 0, static_cast<int>(col.windows.size()) - 1);
@@ -125,6 +99,12 @@ void Monitor::scrollVertical(int deltaRow) {
 }
 
 void Monitor::moveFocusedWindowVertical(int deltaRow) {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty()) return;
     auto& col = columns[focusedColumn];
     int newRow = focusedRow + deltaRow;
@@ -137,6 +117,12 @@ void Monitor::moveFocusedWindowVertical(int deltaRow) {
 }
 
 void Monitor::consumeOrExpelLeft() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty() || (focusedColumn == 0 && columns[focusedColumn].windows.size() == 1)) return;
     
     auto& curCol = columns[focusedColumn];
@@ -172,6 +158,12 @@ void Monitor::consumeOrExpelLeft() {
 }
 
 void Monitor::consumeOrExpelRight() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty() || (focusedColumn == static_cast<int>(columns.size()) - 1 && columns[focusedColumn].windows.size() == 1)) return;
 
     auto& curCol = columns[focusedColumn];
@@ -206,6 +198,12 @@ void Monitor::consumeOrExpelRight() {
 }
 
 void Monitor::consumeIntoColumn() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty() || focusedColumn >= static_cast<int>(columns.size()) - 1) return;
     
     // Take top window from right column
@@ -228,6 +226,12 @@ void Monitor::consumeIntoColumn() {
 }
 
 void Monitor::expelFromColumn() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty() || columns[focusedColumn].windows.size() <= 1) return;
     
     // Expel bottom window to a new column on the right
@@ -252,6 +256,12 @@ void Monitor::expelFromColumn() {
 }
 
 void Monitor::cycleActiveColumnWidth() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty() || focusedColumn < 0 || focusedColumn >= static_cast<int>(columns.size())) return;
     auto& col = columns[focusedColumn];
     col.widthScale = getNextPresetScale(col.widthScale);
@@ -259,6 +269,12 @@ void Monitor::cycleActiveColumnWidth() {
 }
 
 void Monitor::cycleActiveWindowHeight() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty() || focusedColumn < 0 || focusedColumn >= static_cast<int>(columns.size())) return;
     auto& col = columns[focusedColumn];
     if (col.windows.size() <= 1) return; // Cannot re-proportion a single window
@@ -298,37 +314,26 @@ void Monitor::cycleActiveWindowHeight() {
 }
 
 void Monitor::toggleFullscreenOnFocused() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty() || focusedColumn < 0 || focusedColumn >= static_cast<int>(columns.size())) return;
     auto& col = columns[focusedColumn];
     col.widthScale = (col.widthScale > 0.5f) ? 0.5f : 1.0f;
     setLayout();
 }
 
-bool Monitor::setFocusedWindow(HWND hwnd) {
-    if (columns.empty()) return false;
-    
-    // Early exit if the window is already focused
-    if (focusedColumn >= 0 && focusedColumn < static_cast<int>(columns.size())) {
-        auto& col = columns[focusedColumn];
-        if (focusedRow >= 0 && focusedRow < static_cast<int>(col.windows.size())) {
-            if (col.windows[focusedRow]->getHwnd() == hwnd) return true;
-        }
-    }
-
-    for (size_t c = 0; c < columns.size(); ++c) {
-        for (size_t r = 0; r < columns[c].windows.size(); ++r) {
-            if (columns[c].windows[r]->getHwnd() == hwnd) {
-                focusedColumn = static_cast<int>(c);
-                focusedRow = static_cast<int>(r);
-                setLayout();
-                return true;
-            }
-        }
-    }
-    return false;
-}
 
 void Monitor::setLayout() {
+    auto& ws = workspaces[activeWorkspace];
+    auto& columns = ws.columns;
+    auto& focusedColumn = ws.focusedColumn;
+    auto& focusedRow = ws.focusedRow;
+    auto& viewportOffset = ws.viewportOffset;
+
     if (columns.empty()) return;
 
     int monWidth = workArea.right - workArea.left;
@@ -412,4 +417,211 @@ void Monitor::setLayout() {
     }
 
     EndDeferWindowPos(hdwp);
+}
+
+bool Monitor::hasWindow(HWND hwnd) const {
+    for (const auto& ws : workspaces) {
+        for (const auto& col : ws.columns) {
+            for (const auto& win : col.windows) {
+                if (win->getHwnd() == hwnd) return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::shared_ptr<Window> Monitor::removeWindow(HWND hwnd) {
+    for (size_t wi = 0; wi < workspaces.size(); ++wi) {
+        auto& ws = workspaces[wi];
+        for (size_t c = 0; c < ws.columns.size(); ++c) {
+            auto& col = ws.columns[c];
+            for (size_t r = 0; r < col.windows.size(); ++r) {
+                if (col.windows[r]->getHwnd() == hwnd) {
+                    auto win = col.windows[r];
+                    col.windows.erase(col.windows.begin() + r);
+                    
+                    if (col.windows.empty()) {
+                        ws.columns.erase(ws.columns.begin() + c);
+                        if (ws.focusedColumn >= static_cast<int>(ws.columns.size())) {
+                            ws.focusedColumn = (std::max)(0, static_cast<int>(ws.columns.size()) - 1);
+                        }
+                    } else if (ws.focusedRow >= static_cast<int>(col.windows.size())) {
+                        ws.focusedRow = static_cast<int>(col.windows.size()) - 1;
+                    }
+                    
+                    if (wi == activeWorkspace) {
+                        setLayout();
+                        if (!ws.columns.empty()) {
+                            ws.columns[ws.focusedColumn].windows[ws.focusedRow]->focus();
+                        }
+                    }
+                    cleanupEmptyWorkspaces();
+                    return win;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool Monitor::setFocusedWindow(HWND hwnd) {
+    for (size_t wi = 0; wi < workspaces.size(); ++wi) {
+        auto& ws = workspaces[wi];
+        for (size_t c = 0; c < ws.columns.size(); ++c) {
+            for (size_t r = 0; r < ws.columns[c].windows.size(); ++r) {
+                if (ws.columns[c].windows[r]->getHwnd() == hwnd) {
+                    if (static_cast<int>(wi) != activeWorkspace) {
+                        setActiveWorkspace(static_cast<int>(wi), false);
+                    }
+                    auto& newWs = workspaces[activeWorkspace];
+                    newWs.focusedColumn = static_cast<int>(c);
+                    newWs.focusedRow = static_cast<int>(r);
+                    setLayout();
+                    // Do not call ->focus() again! The OS already gave it focus to trigger this event!
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+std::vector<std::shared_ptr<Window>> Monitor::getWindows() const {
+    std::vector<std::shared_ptr<Window>> allWins;
+    for (const auto& ws : workspaces) {
+        for (const auto& col : ws.columns) {
+            for (const auto& win : col.windows) {
+                if (win->isValid()) {
+                    allWins.push_back(win);
+                }
+            }
+        }
+    }
+    return allWins;
+}
+
+void Monitor::parkWorkspaceOffscreen(int wsIndex) {
+    if (wsIndex < 0 || wsIndex >= static_cast<int>(workspaces.size())) return;
+    HDWP hdwp = BeginDeferWindowPos(100);
+    int offscreenX = 50000;
+    int offscreenY = 50000;
+    int monWidth = workArea.right - workArea.left;
+    int monHeight = workArea.bottom - workArea.top;
+
+    for (auto& col : workspaces[wsIndex].columns) {
+        for (auto& win : col.windows) {
+            win->setPos(offscreenX, offscreenY, monWidth / 2, monHeight, hdwp);
+        }
+    }
+    EndDeferWindowPos(hdwp);
+}
+
+void Monitor::setActiveWorkspace(int index, bool focusWindow) {
+    if (index < 0 || index >= static_cast<int>(workspaces.size()) || index == activeWorkspace) return;
+    
+    parkWorkspaceOffscreen(activeWorkspace);
+    
+    previousWorkspace = activeWorkspace;
+    activeWorkspace = index;
+    cleanupEmptyWorkspaces(); 
+    
+    setLayout();
+    if (focusWindow) {
+        auto& ws = workspaces[activeWorkspace];
+        if (!ws.columns.empty()) {
+            ws.columns[ws.focusedColumn].windows[ws.focusedRow]->focus();
+        }
+    }
+}
+
+void Monitor::cleanupEmptyWorkspaces() {
+    for (int i = static_cast<int>(workspaces.size()) - 1; i >= 0; --i) {
+        if (workspaces[i].columns.empty() && i != activeWorkspace) {
+            workspaces.erase(workspaces.begin() + i);
+            if (activeWorkspace > i) activeWorkspace--;
+            if (previousWorkspace > i) previousWorkspace--;
+            else if (previousWorkspace == i) previousWorkspace = activeWorkspace; 
+        }
+    }
+    
+    if (workspaces.empty()) {
+        workspaces.push_back(Workspace{});
+        activeWorkspace = 0;
+        previousWorkspace = 0;
+    } else if (!workspaces.back().columns.empty()) {
+        workspaces.push_back(Workspace{});
+    }
+}
+
+void Monitor::focusWorkspaceUp() {
+    if (activeWorkspace > 0) {
+        setActiveWorkspace(activeWorkspace - 1);
+    }
+}
+
+void Monitor::focusWorkspaceDown() {
+    if (activeWorkspace < static_cast<int>(workspaces.size()) - 1) {
+        setActiveWorkspace(activeWorkspace + 1);
+    }
+}
+
+void Monitor::focusWorkspacePrevious() {
+    if (previousWorkspace >= 0 && previousWorkspace < static_cast<int>(workspaces.size()) && previousWorkspace != activeWorkspace) {
+        setActiveWorkspace(previousWorkspace);
+    }
+}
+
+void Monitor::moveColumnToWorkspaceUp() {
+    auto& ws = workspaces[activeWorkspace];
+    if (ws.columns.empty() || activeWorkspace == 0) return;
+    
+    auto col = std::move(ws.columns[ws.focusedColumn]);
+    ws.columns.erase(ws.columns.begin() + ws.focusedColumn);
+    
+    if (ws.focusedColumn >= static_cast<int>(ws.columns.size())) ws.focusedColumn = (std::max)(0, static_cast<int>(ws.columns.size()) - 1);
+    ws.focusedRow = 0;
+    
+    setActiveWorkspace(activeWorkspace - 1, false);
+    
+    auto& targetWs = workspaces[activeWorkspace];
+    if (targetWs.columns.empty()) {
+        targetWs.columns.push_back(std::move(col));
+        targetWs.focusedColumn = 0;
+    } else {
+        targetWs.focusedColumn++;
+        targetWs.columns.insert(targetWs.columns.begin() + targetWs.focusedColumn, std::move(col));
+    }
+    targetWs.focusedRow = 0;
+    
+    setLayout();
+    targetWs.columns[targetWs.focusedColumn].windows[targetWs.focusedRow]->focus();
+    cleanupEmptyWorkspaces();
+}
+
+void Monitor::moveColumnToWorkspaceDown() {
+    if (workspaces[activeWorkspace].columns.empty()) return;
+    
+    // We grab ws locally. Erasing doesn't invalidate it because no reallocation occurs.
+    auto& ws = workspaces[activeWorkspace];
+    auto col = std::move(ws.columns[ws.focusedColumn]);
+    ws.columns.erase(ws.columns.begin() + ws.focusedColumn);
+    
+    if (ws.focusedColumn >= static_cast<int>(ws.columns.size())) ws.focusedColumn = (std::max)(0, static_cast<int>(ws.columns.size()) - 1);
+    ws.focusedRow = 0;
+    
+    setActiveWorkspace(activeWorkspace + 1, false);
+    
+    auto& targetWs = workspaces[activeWorkspace];
+    if (targetWs.columns.empty()) {
+        targetWs.columns.push_back(std::move(col));
+        targetWs.focusedColumn = 0;
+    } else {
+        targetWs.focusedColumn++;
+        targetWs.columns.insert(targetWs.columns.begin() + targetWs.focusedColumn, std::move(col));
+    }
+    targetWs.focusedRow = 0;
+    
+    setLayout();
+    targetWs.columns[targetWs.focusedColumn].windows[targetWs.focusedRow]->focus();
+    cleanupEmptyWorkspaces();
 }

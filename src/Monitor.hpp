@@ -9,6 +9,13 @@ struct Column {
     float widthScale = 0.5f;
 };
 
+struct Workspace {
+    std::vector<Column> columns;
+    int focusedColumn = 0;
+    int focusedRow = 0;
+    float viewportOffset = 0.0f;
+};
+
 class Monitor {
 public:
     Monitor(HMONITOR hmon, RECT workArea);
@@ -34,6 +41,12 @@ public:
     void cycleActiveColumnWidth();
     void cycleActiveWindowHeight();
 
+    void focusWorkspaceDown();
+    void focusWorkspaceUp();
+    void focusWorkspacePrevious();
+    void moveColumnToWorkspaceDown();
+    void moveColumnToWorkspaceUp();
+
     void toggleFullscreenOnFocused();
     bool setFocusedWindow(HWND hwnd);
     void setLayout();
@@ -43,10 +56,11 @@ public:
 private:
     HMONITOR hmon;
     RECT workArea;
-    std::vector<Column> columns;
+    std::vector<Workspace> workspaces;
+    int activeWorkspace = 0;
+    int previousWorkspace = 0;
     
-    // Viewport relative to virtual projection coordinate
-    int focusedColumn = 0;
-    int focusedRow = 0;
-    float viewportOffset = 0.0f;
+    void setActiveWorkspace(int index, bool focusWindow = true);
+    void parkWorkspaceOffscreen(int wsIndex);
+    void cleanupEmptyWorkspaces();
 };

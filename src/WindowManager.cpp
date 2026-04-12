@@ -118,6 +118,21 @@ bool WindowManager::handleAction(Action action) {
         } else if (action == Action::SwitchPresetWindowHeight) {
             m->cycleActiveWindowHeight();
             return true;
+        } else if (action == Action::FocusWorkspaceDown) {
+            m->focusWorkspaceDown();
+            return true;
+        } else if (action == Action::FocusWorkspaceUp) {
+            m->focusWorkspaceUp();
+            return true;
+        } else if (action == Action::FocusWorkspacePrevious) {
+            m->focusWorkspacePrevious();
+            return true;
+        } else if (action == Action::MoveColumnToWorkspaceDown) {
+            m->moveColumnToWorkspaceDown();
+            return true;
+        } else if (action == Action::MoveColumnToWorkspaceUp) {
+            m->moveColumnToWorkspaceUp();
+            return true;
         } else if (action == Action::ToggleFullscreen) {
             m->toggleFullscreenOnFocused();
             return true;
