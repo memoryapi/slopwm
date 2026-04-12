@@ -18,6 +18,8 @@ enum class Action {
     ConsumeOrExpelRight,
     ConsumeIntoColumn,
     ExpelFromColumn,
+    SwitchPresetColumnWidth,
+    SwitchPresetWindowHeight,
     ToggleFullscreen,
     MoveToNextMonitor,
     Exit,

@@ -75,6 +75,10 @@ void KeybindingManager::initializeDefaults() {
   addBinding({modDefault, VK_OEM_COMMA}, Action::ConsumeIntoColumn);
   addBinding({modDefault, VK_OEM_PERIOD}, Action::ExpelFromColumn);
 
+  // Preset bounds keys
+  addBinding({modDefault, 'R'}, Action::SwitchPresetColumnWidth);
+  addBinding({modMove, 'R'}, Action::SwitchPresetWindowHeight);
+
   // Other actions
   addBinding({modDefault, 'E'}, Action::Exit);
   addBinding({modDefault, 'F'}, Action::ToggleFullscreen);

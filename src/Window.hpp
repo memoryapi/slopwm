@@ -19,8 +19,12 @@ public:
 
     bool focus() const;
 
+    float getHeightScale() const { return heightScale; }
+    void setHeightScale(float scale) { heightScale = scale; }
+
 private:
     HWND hwnd;
+    float heightScale = 1.0f;
     // Store original state to restore when WM exits
     RECT originalRect;
     LONG originalStyle;

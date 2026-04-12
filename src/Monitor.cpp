@@ -1,12 +1,25 @@
 #include "Monitor.hpp"
 #include <algorithm>
 #include <cmath>
+#include <array>
 #include "Utils.hpp"
+
+constexpr std::array<float, 3> PRESET_SCALES = { 1.0f / 3.0f, 0.5f, 2.0f / 3.0f };
+
+static float getNextPresetScale(float currentScale) {
+    for (float scale : PRESET_SCALES) {
+        if (scale > currentScale + 0.01f) {
+            return scale;
+        }
+    }
+    return PRESET_SCALES[0];
+}
 
 Monitor::Monitor(HMONITOR hmon, RECT workArea) : hmon(hmon), workArea(workArea) {}
 
 void Monitor::addWindow(std::shared_ptr<Window> win) {
     if (!hasWindow(win->getHwnd())) {
+        win->setHeightScale(1.0f);
         Column newCol;
         newCol.windows.push_back(win);
         
@@ -124,7 +137,7 @@ void Monitor::moveFocusedWindowVertical(int deltaRow) {
 }
 
 void Monitor::consumeOrExpelLeft() {
-    if (columns.empty() || focusedColumn == 0 && columns[focusedColumn].windows.size() == 1) return;
+    if (columns.empty() || (focusedColumn == 0 && columns[focusedColumn].windows.size() == 1)) return;
     
     auto& curCol = columns[focusedColumn];
     if (curCol.windows.size() == 1) {
@@ -132,15 +145,22 @@ void Monitor::consumeOrExpelLeft() {
         auto win = curCol.windows[0];
         columns.erase(columns.begin() + focusedColumn);
         focusedColumn--;
-        columns[focusedColumn].windows.push_back(win);
-        focusedRow = static_cast<int>(columns[focusedColumn].windows.size()) - 1;
+        
+        auto& targetCol = columns[focusedColumn];
+        float totalH = 0.0f;
+        for (const auto& w : targetCol.windows) totalH += w->getHeightScale();
+        win->setHeightScale(totalH / targetCol.windows.size());
+        
+        targetCol.windows.push_back(win);
+        focusedRow = static_cast<int>(targetCol.windows.size()) - 1;
     } else {
         // Expel: Extract focused window into a new column to the left
         auto win = curCol.windows[focusedRow];
         curCol.windows.erase(curCol.windows.begin() + focusedRow);
         
+        win->setHeightScale(1.0f);
+        
         Column newCol;
-        // The expelled column inherits width scale logic or resets. Let's inherit:
         newCol.widthScale = curCol.widthScale;
         newCol.windows.push_back(win);
         columns.insert(columns.begin() + focusedColumn, newCol);
@@ -160,13 +180,19 @@ void Monitor::consumeOrExpelRight() {
         auto win = curCol.windows[0];
         columns.erase(columns.begin() + focusedColumn);
         // We deleted current column, so the old right column is now at focusedColumn
-        // We append to bottom:
-        columns[focusedColumn].windows.push_back(win);
-        focusedRow = static_cast<int>(columns[focusedColumn].windows.size()) - 1;
+        auto& targetCol = columns[focusedColumn];
+        float totalH = 0.0f;
+        for (const auto& w : targetCol.windows) totalH += w->getHeightScale();
+        win->setHeightScale(totalH / targetCol.windows.size());
+        
+        targetCol.windows.push_back(win);
+        focusedRow = static_cast<int>(targetCol.windows.size()) - 1;
     } else {
         // Expel: Extract focused window into new column to right
         auto win = curCol.windows[focusedRow];
         curCol.windows.erase(curCol.windows.begin() + focusedRow);
+        
+        win->setHeightScale(1.0f);
         
         Column newCol;
         newCol.widthScale = curCol.widthScale;
@@ -187,7 +213,12 @@ void Monitor::consumeIntoColumn() {
     auto win = rightCol.windows.front();
     rightCol.windows.erase(rightCol.windows.begin());
     
-    columns[focusedColumn].windows.push_back(win);
+    auto& targetCol = columns[focusedColumn];
+    float totalH = 0.0f;
+    for (const auto& w : targetCol.windows) totalH += w->getHeightScale();
+    win->setHeightScale(totalH / targetCol.windows.size());
+    
+    targetCol.windows.push_back(win);
     
     if (rightCol.windows.empty()) {
         columns.erase(columns.begin() + focusedColumn + 1);
@@ -209,6 +240,8 @@ void Monitor::expelFromColumn() {
         focusedRow = static_cast<int>(curCol.windows.size()) - 1;
     }
 
+    win->setHeightScale(1.0f);
+
     Column newCol;
     newCol.widthScale = curCol.widthScale;
     newCol.windows.push_back(win);
@@ -216,6 +249,52 @@ void Monitor::expelFromColumn() {
     columns.insert(columns.begin() + focusedColumn + 1, newCol);
     setLayout();
     columns[focusedColumn].windows[focusedRow]->focus();
+}
+
+void Monitor::cycleActiveColumnWidth() {
+    if (columns.empty() || focusedColumn < 0 || focusedColumn >= static_cast<int>(columns.size())) return;
+    auto& col = columns[focusedColumn];
+    col.widthScale = getNextPresetScale(col.widthScale);
+    setLayout();
+}
+
+void Monitor::cycleActiveWindowHeight() {
+    if (columns.empty() || focusedColumn < 0 || focusedColumn >= static_cast<int>(columns.size())) return;
+    auto& col = columns[focusedColumn];
+    if (col.windows.size() <= 1) return; // Cannot re-proportion a single window
+
+    if (focusedRow < 0 || focusedRow >= static_cast<int>(col.windows.size())) return;
+    
+    // Normalize current height scales to exactly 1.0 so we can math out available space safely
+    float totalHeightScale = 0.0f;
+    for (const auto& win : col.windows) {
+        totalHeightScale += win->getHeightScale();
+    }
+    
+    if (totalHeightScale > 0.0f) {
+        for (const auto& win : col.windows) {
+            win->setHeightScale(win->getHeightScale() / totalHeightScale);
+        }
+    }
+    
+    auto win = col.windows[focusedRow];
+    float currentProp = win->getHeightScale();
+    float targetProp = getNextPresetScale(currentProp);
+    
+    win->setHeightScale(targetProp);
+    
+    float remainingProp = (std::max)(0.0f, 1.0f - targetProp);
+    float oldRemainingProp = (std::max)(0.0001f, 1.0f - currentProp);
+    
+    for (int r = 0; r < static_cast<int>(col.windows.size()); ++r) {
+        if (r != focusedRow) {
+            float oldProp = col.windows[r]->getHeightScale();
+            float newProp = oldProp * (remainingProp / oldRemainingProp);
+            col.windows[r]->setHeightScale(newProp);
+        }
+    }
+    
+    setLayout();
 }
 
 void Monitor::toggleFullscreenOnFocused() {
@@ -301,22 +380,34 @@ void Monitor::setLayout() {
         
         bool inViewport = (startX < viewportOffset + 1.0f && endX > viewportOffset);
         
-        int winHeight = monHeight / col.windows.size();
+        float totalHeightScale = 0.0f;
+        for (const auto& win : col.windows) {
+            totalHeightScale += win->getHeightScale();
+        }
+
+        int currentY = workArea.top;
         
         for (int r = 0; r < static_cast<int>(col.windows.size()); ++r) {
             auto& win = col.windows[r];
             if (!win->isValid()) continue;
 
+            float fraction = win->getHeightScale() / (totalHeightScale > 0.0f ? totalHeightScale : 1.0f);
+            int winHeight = static_cast<int>(std::round(fraction * monHeight));
+            
+            if (r == static_cast<int>(col.windows.size()) - 1) {
+                winHeight = workArea.bottom - currentY;
+            }
+
             if (inViewport) {
                 float relStart = startX - viewportOffset;
                 int pixelX = workArea.left + static_cast<int>(std::round(relStart * monWidth));
                 int pixelWidth = static_cast<int>(std::round(col.widthScale * monWidth));
-                int pixelY = workArea.top + (r * winHeight);
                 
-                win->setPos(pixelX, pixelY, pixelWidth, winHeight, hdwp);
+                win->setPos(pixelX, currentY, pixelWidth, winHeight, hdwp);
             } else {
                 win->setPos(offscreenX, offscreenY, monWidth / 2, monHeight, hdwp);
             }
+            currentY += winHeight;
         }
     }
 

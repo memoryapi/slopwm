@@ -31,6 +31,9 @@ public:
     void consumeIntoColumn();
     void expelFromColumn();
 
+    void cycleActiveColumnWidth();
+    void cycleActiveWindowHeight();
+
     void toggleFullscreenOnFocused();
     bool setFocusedWindow(HWND hwnd);
     void setLayout();

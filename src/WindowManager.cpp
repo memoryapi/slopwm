@@ -112,6 +112,12 @@ bool WindowManager::handleAction(Action action) {
         } else if (action == Action::ExpelFromColumn) {
             m->expelFromColumn();
             return true;
+        } else if (action == Action::SwitchPresetColumnWidth) {
+            m->cycleActiveColumnWidth();
+            return true;
+        } else if (action == Action::SwitchPresetWindowHeight) {
+            m->cycleActiveWindowHeight();
+            return true;
         } else if (action == Action::ToggleFullscreen) {
             m->toggleFullscreenOnFocused();
             return true;
