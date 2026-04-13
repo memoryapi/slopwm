@@ -74,13 +74,14 @@ void LayoutRenderer::renderActiveWorkspace(WorkspaceManager& manager, RECT workA
             
             if (r == static_cast<int>(wins.size()) - 1) winHeight = workArea.bottom - currentY;
 
+            int pixelWidth = static_cast<int>(std::round(col.getWidthScale() * monWidth));
+
             if (inViewport) {
                 float relStart = startX - viewportOffset;
                 int pixelX = workArea.left + static_cast<int>(std::round(relStart * monWidth));
-                int pixelWidth = static_cast<int>(std::round(col.getWidthScale() * monWidth));
                 win->setPos(pixelX, currentY, pixelWidth, winHeight, hdwp);
             } else {
-                win->setPos(offscreenX, offscreenY, monWidth / 2, monHeight, hdwp);
+                win->setPos(offscreenX, offscreenY, pixelWidth, winHeight, hdwp);
             }
             currentY += winHeight;
         }
@@ -109,8 +110,22 @@ void LayoutRenderer::parkInactiveWorkspaces(const WorkspaceManager& manager, REC
         if (!hdwp) continue;
         
         for (const auto& col : ws.getColumns()) {
-            for (const auto& win : col.getWindows()) {
-                win->setPos(offscreenX, offscreenY, monWidth / 2, monHeight, hdwp);
+            float totalHeightScale = 0.0f;
+            for (const auto& win : col.getWindows()) totalHeightScale += win->getHeightScale();
+
+            int pixelWidth = static_cast<int>(std::round(col.getWidthScale() * monWidth));
+            int currentY = workArea.top;
+
+            const auto& wins = col.getWindows();
+            for (int r = 0; r < static_cast<int>(wins.size()); ++r) {
+                const auto& win = wins[r];
+                float fraction = win->getHeightScale() / (totalHeightScale > 0.0f ? totalHeightScale : 1.0f);
+                int winHeight = static_cast<int>(std::round(fraction * monHeight));
+                
+                if (r == static_cast<int>(wins.size()) - 1) winHeight = workArea.bottom - currentY;
+
+                win->setPos(offscreenX, offscreenY, pixelWidth, winHeight, hdwp);
+                currentY += winHeight;
             }
         }
         EndDeferWindowPos(hdwp);
