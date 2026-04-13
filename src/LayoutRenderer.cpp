@@ -25,19 +25,25 @@ void LayoutRenderer::renderActiveWorkspace(WorkspaceManager& manager, RECT workA
     float focusedEnd = focusedStart + focusedWidth;
 
     float viewportOffset = ws.getViewportOffset();
-    if (focusedStart < viewportOffset) {
-        viewportOffset = focusedStart;
-    }
-    if (focusedEnd > viewportOffset + 1.0f) {
-        viewportOffset = focusedEnd - 1.0f;
+    
+    if (columns.size() == 1) {
+        viewportOffset = -(1.0f - focusedWidth) / 2.0f;
+        ws.setViewportOffset(viewportOffset);
+    } else {
         if (focusedStart < viewportOffset) {
-            viewportOffset = focusedStart; 
+            viewportOffset = focusedStart;
         }
-    }
+        if (focusedEnd > viewportOffset + 1.0f) {
+            viewportOffset = focusedEnd - 1.0f;
+            if (focusedStart < viewportOffset) {
+                viewportOffset = focusedStart; 
+            }
+        }
 
-    float maxViewport = (std::max)(0.0f, currentVirtualX - 1.0f);
-    viewportOffset = std::clamp(viewportOffset, 0.0f, maxViewport);
-    ws.setViewportOffset(viewportOffset);
+        float maxViewport = (std::max)(0.0f, currentVirtualX - 1.0f);
+        viewportOffset = std::clamp(viewportOffset, 0.0f, maxViewport);
+        ws.setViewportOffset(viewportOffset);
+    }
 
     int totalWindows = 0;
     for (const auto& col : columns) {
