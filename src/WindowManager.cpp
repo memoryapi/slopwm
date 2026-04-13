@@ -76,67 +76,56 @@ bool WindowManager::handleAction(Action action) {
     }
 
     if (m) {
+        auto& wm = m->getWorkspaceManager();
+        auto& ws = wm.getActiveWorkspace();
+
         if (action == Action::ScrollLeft) {
-            m->scroll(-1);
-            return true;
+            ws.scroll(-1);
         } else if (action == Action::ScrollRight) {
-            m->scroll(1);
-            return true;
+            ws.scroll(1);
         } else if (action == Action::ScrollUp) {
-            m->scrollVertical(-1);
-            return true;
+            ws.scrollVertical(-1);
         } else if (action == Action::ScrollDown) {
-            m->scrollVertical(1);
-            return true;
+            ws.scrollVertical(1);
         } else if (action == Action::MoveWindowLeft) {
-            m->moveFocusedWindow(-1);
-            return true;
+            ws.moveFocusedWindow(-1);
         } else if (action == Action::MoveWindowRight) {
-            m->moveFocusedWindow(1);
-            return true;
+            ws.moveFocusedWindow(1);
         } else if (action == Action::MoveWindowUp) {
-            m->moveFocusedWindowVertical(-1);
-            return true;
+            ws.moveFocusedWindowVertical(-1);
         } else if (action == Action::MoveWindowDown) {
-            m->moveFocusedWindowVertical(1);
-            return true;
+            ws.moveFocusedWindowVertical(1);
         } else if (action == Action::ConsumeOrExpelLeft) {
-            m->consumeOrExpelLeft();
-            return true;
+            ws.consumeOrExpelLeft();
         } else if (action == Action::ConsumeOrExpelRight) {
-            m->consumeOrExpelRight();
-            return true;
+            ws.consumeOrExpelRight();
         } else if (action == Action::ConsumeIntoColumn) {
-            m->consumeIntoColumn();
-            return true;
+            ws.consumeIntoColumn();
         } else if (action == Action::ExpelFromColumn) {
-            m->expelFromColumn();
-            return true;
+            ws.expelFromColumn();
         } else if (action == Action::SwitchPresetColumnWidth) {
-            m->cycleActiveColumnWidth();
-            return true;
+            ws.cycleActiveColumnWidth();
         } else if (action == Action::SwitchPresetWindowHeight) {
-            m->cycleActiveWindowHeight();
-            return true;
+            ws.cycleActiveWindowHeight();
         } else if (action == Action::FocusWorkspaceDown) {
-            m->focusWorkspaceDown();
-            return true;
+            wm.focusWorkspaceDown();
         } else if (action == Action::FocusWorkspaceUp) {
-            m->focusWorkspaceUp();
-            return true;
+            wm.focusWorkspaceUp();
         } else if (action == Action::FocusWorkspacePrevious) {
-            m->focusWorkspacePrevious();
-            return true;
+            wm.focusWorkspacePrevious();
         } else if (action == Action::MoveColumnToWorkspaceDown) {
-            m->moveColumnToWorkspaceDown();
-            return true;
+            wm.moveColumnToWorkspaceDown();
         } else if (action == Action::MoveColumnToWorkspaceUp) {
-            m->moveColumnToWorkspaceUp();
-            return true;
+            wm.moveColumnToWorkspaceUp();
         } else if (action == Action::ToggleFullscreen) {
-            m->toggleFullscreenOnFocused();
-            return true;
+            ws.toggleFullscreenOnFocused();
+        } else {
+            return false;
         }
+
+        m->updateLayout();
+        if (auto w = wm.getActiveWorkspace().getFocusedWindow()) w->focus();
+        return true;
     }
     
     // Window manager level hotkeys

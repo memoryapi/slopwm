@@ -11,6 +11,10 @@ add_executable(slopwm WIN32
     src/WindowManager.cpp
     src/Keybindings.cpp
     src/Monitor.cpp
+    src/Column.cpp
+    src/Workspace.cpp
+    src/WorkspaceManager.cpp
+    src/LayoutRenderer.cpp
     src/Window.cpp
     src/TrayManager.cpp
     res/resource.rc
