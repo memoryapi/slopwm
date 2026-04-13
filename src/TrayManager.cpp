@@ -1,4 +1,5 @@
 #include "TrayManager.hpp"
+#include "WindowManager.hpp"
 #include "resource.h"
 #include <string>
 
@@ -15,6 +16,9 @@ LRESULT CALLBACK TrayManager::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     if (manager) {
       manager->handleTrayMessage(lParam);
     }
+    return 0;
+  } else if (uMsg == WM_DISPLAYCHANGE) {
+    WindowManager::getInstance().syncMonitors();
     return 0;
   } else if (uMsg == WM_COMMAND) {
     TrayManager *manager =
@@ -50,7 +54,7 @@ TrayManager::TrayManager(HINSTANCE hInstance) : hInst(hInstance) {
   RegisterClassW(&wc);
 
   hiddenHwnd = CreateWindowExW(0, CLASS_NAME, L"SlopWMTrayWindow", 0, 0, 0, 0,
-                               0, HWND_MESSAGE, NULL, hInstance, NULL);
+                               0, NULL, NULL, hInstance, NULL);
 
   SetWindowLongPtr(hiddenHwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 

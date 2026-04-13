@@ -67,6 +67,11 @@ void WindowManager::shutdown() {
 }
 
 bool WindowManager::handleAction(Action action) {
+    if (action == Action::MoveToNextMonitor) {
+        moveFocusedWindowToNextMonitor();
+        return true;
+    }
+
     HWND fg = GetForegroundWindow();
     Monitor* m = getMonitorForWindow(fg);
     
@@ -157,14 +162,81 @@ Monitor* WindowManager::getMonitorForWindow(HWND hwnd) {
     return nullptr;
 }
 
+void WindowManager::syncMonitors() {
+    struct DisplayData {
+        HMONITOR hmon;
+        RECT rect;
+        std::wstring deviceName;
+    };
+    std::vector<DisplayData> activeDisplays;
+
+    EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR hmon, HDC, LPRECT /*rect*/, LPARAM lParam) -> BOOL {
+        auto* vec = reinterpret_cast<std::vector<DisplayData>*>(lParam);
+        MONITORINFOEXW mi;
+        mi.cbSize = sizeof(mi);
+        if (GetMonitorInfoW(hmon, (LPMONITORINFO)&mi)) {
+            vec->push_back({ hmon, mi.rcWork, std::wstring(mi.szDevice) });
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&activeDisplays));
+
+    std::vector<Monitor> newMonitors;
+    
+    for (const auto& display : activeDisplays) {
+        bool found = false;
+        for (auto& oldM : monitors) {
+            if (oldM.getDeviceName() == display.deviceName) {
+                oldM.setWorkArea(display.rect);
+                oldM.setHMonitor(display.hmon);
+                newMonitors.push_back(std::move(oldM));
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            newMonitors.emplace_back(display.hmon, display.rect, display.deviceName);
+        }
+    }
+
+    auto migrateOrphansBlock = [&newMonitors](Monitor& orphanedM) {
+        if (newMonitors.empty()) return;
+        auto& pm = newMonitors[0].getWorkspaceManager();
+        for (auto& ws : orphanedM.getWorkspaceManager().getWorkspaces()) {
+            if (!ws.isEmpty()) {
+                pm.getWorkspaces().push_back(std::move(ws));
+            }
+        }
+    };
+
+    for (auto& oldM : monitors) {
+        bool survives = false;
+        for (const auto& display : activeDisplays) {
+            if (oldM.getDeviceName() == display.deviceName) {
+                survives = true;
+                break;
+            }
+        }
+        if (!survives) {
+            migrateOrphansBlock(oldM);
+        }
+    }
+
+    monitors = std::move(newMonitors);
+
+    for (auto& m : monitors) {
+        m.updateLayout();
+    }
+}
+
 void WindowManager::discoverMonitors() {
     monitors.clear();
     EnumDisplayMonitors(nullptr, nullptr, [](HMONITOR hmon, HDC, LPRECT /*rect*/, LPARAM lParam) -> BOOL {
         auto* wm = reinterpret_cast<WindowManager*>(lParam);
         
-        MONITORINFO mi = { sizeof(mi) };
-        if (GetMonitorInfo(hmon, &mi)) {
-            wm->monitors.emplace_back(hmon, mi.rcWork);
+        MONITORINFOEXW mi;
+        mi.cbSize = sizeof(mi);
+        if (GetMonitorInfoW(hmon, (LPMONITORINFO)&mi)) {
+            wm->monitors.emplace_back(hmon, mi.rcWork, std::wstring(mi.szDevice));
         }
         return TRUE;
     }, reinterpret_cast<LPARAM>(this));

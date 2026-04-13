@@ -1,7 +1,7 @@
 #include "Monitor.hpp"
 #include "LayoutRenderer.hpp"
 
-Monitor::Monitor(HMONITOR hmon, RECT workArea) : hmon(hmon), workArea(workArea) {}
+Monitor::Monitor(HMONITOR hmon, RECT workArea, std::wstring deviceName) : hmon(hmon), deviceName(deviceName), workArea(workArea) {}
 
 void Monitor::updateLayout() {
     LayoutRenderer::parkInactiveWorkspaces(workspaceManager, workArea);

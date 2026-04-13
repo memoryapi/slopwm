@@ -21,6 +21,7 @@ public:
     void onWindowFocused(HWND hwnd);
 
     void moveFocusedWindowToNextMonitor();
+    void syncMonitors();
 
 private:
     WindowManager() = default;
