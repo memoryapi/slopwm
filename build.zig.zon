@@ -1,0 +1,11 @@
+.{
+    .fingerprint = 0x47f39514f6512ac,
+    .name = .slopwm,
+    .version = "0.1.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "res",
+    },
+}
