@@ -1,5 +1,5 @@
 const std = @import("std");
-const win32 = @import("win32.zig");
+const win32 = @import("win32").everything;
 
 pub const Action = enum {
     ScrollLeft,
@@ -28,8 +28,8 @@ pub const Action = enum {
 };
 
 pub const KeyCombination = struct {
-    modifiers: win32.UINT,
-    key: win32.UINT,
+    modifiers: win32.HOT_KEY_MODIFIERS,
+    key: u32,
 };
 
 pub const KeybindingManager = struct {
@@ -81,19 +81,28 @@ pub const KeybindingManager = struct {
     pub fn initializeDefaults(self: *KeybindingManager) !void {
         self.unregisterAll();
 
-        const mod_default = win32.MOD_ALT | win32.MOD_SHIFT | win32.MOD_NOREPEAT;
-        const mod_move = win32.MOD_ALT | win32.MOD_CONTROL | win32.MOD_SHIFT | win32.MOD_NOREPEAT;
+        const mod_default = win32.HOT_KEY_MODIFIERS{
+            .ALT = 1,
+            .SHIFT = 1,
+            .NOREPEAT = 1,
+        };
+        const mod_move = win32.HOT_KEY_MODIFIERS{
+            .ALT = 1,
+            .CONTROL = 1,
+            .SHIFT = 1,
+            .NOREPEAT = 1,
+        };
 
         // Arrow keys
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_LEFT }, .ScrollLeft);
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_RIGHT }, .ScrollRight);
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_UP }, .ScrollUp);
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_DOWN }, .ScrollDown);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_LEFT) }, .ScrollLeft);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_RIGHT) }, .ScrollRight);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_UP) }, .ScrollUp);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_DOWN) }, .ScrollDown);
 
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_LEFT }, .MoveWindowLeft);
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_RIGHT }, .MoveWindowRight);
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_UP }, .MoveWindowUp);
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_DOWN }, .MoveWindowDown);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_LEFT) }, .MoveWindowLeft);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_RIGHT) }, .MoveWindowRight);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_UP) }, .MoveWindowUp);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_DOWN) }, .MoveWindowDown);
 
         // Vim keys
         try self.addBinding(.{ .modifiers = mod_default, .key = 'H' }, .ScrollLeft);
@@ -107,24 +116,24 @@ pub const KeybindingManager = struct {
         try self.addBinding(.{ .modifiers = mod_move, .key = 'J' }, .MoveWindowDown);
 
         // Niri columns keys
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_OEM_COMMA }, .ConsumeOrExpelLeft);
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_OEM_PERIOD }, .ConsumeOrExpelRight);
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_OEM_COMMA }, .ConsumeIntoColumn);
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_OEM_PERIOD }, .ExpelFromColumn);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_OEM_COMMA) }, .ConsumeOrExpelLeft);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_OEM_PERIOD) }, .ConsumeOrExpelRight);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_OEM_COMMA) }, .ConsumeIntoColumn);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_OEM_PERIOD) }, .ExpelFromColumn);
 
         // Preset bounds keys
         try self.addBinding(.{ .modifiers = mod_default, .key = 'R' }, .SwitchPresetColumnWidth);
         try self.addBinding(.{ .modifiers = mod_move, .key = 'R' }, .SwitchPresetWindowHeight);
 
         // Workspaces
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_NEXT }, .FocusWorkspaceDown);
-        try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_PRIOR }, .FocusWorkspaceUp);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_NEXT) }, .FocusWorkspaceDown);
+        try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_PRIOR) }, .FocusWorkspaceUp);
         try self.addBinding(.{ .modifiers = mod_default, .key = 'U' }, .FocusWorkspaceDown);
         try self.addBinding(.{ .modifiers = mod_default, .key = 'I' }, .FocusWorkspaceUp);
-        // try self.addBinding(.{ .modifiers = mod_default, .key = win32.VK_TAB }, .FocusWorkspacePrevious);
+        // try self.addBinding(.{ .modifiers = mod_default, .key = @intFromEnum(win32.VK_TAB) }, .FocusWorkspacePrevious);
 
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_NEXT }, .MoveColumnToWorkspaceDown);
-        try self.addBinding(.{ .modifiers = mod_move, .key = win32.VK_PRIOR }, .MoveColumnToWorkspaceUp);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_NEXT) }, .MoveColumnToWorkspaceDown);
+        try self.addBinding(.{ .modifiers = mod_move, .key = @intFromEnum(win32.VK_PRIOR) }, .MoveColumnToWorkspaceUp);
         try self.addBinding(.{ .modifiers = mod_move, .key = 'U' }, .MoveColumnToWorkspaceDown);
         try self.addBinding(.{ .modifiers = mod_move, .key = 'I' }, .MoveColumnToWorkspaceUp);
 

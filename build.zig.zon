@@ -2,6 +2,12 @@
     .fingerprint = 0x47f39514f6512ac,
     .name = .slopwm,
     .version = "0.1.0",
+    .dependencies = .{
+        .zigwin32 = .{
+            .url = "https://github.com/marlersoft/zigwin32/archive/refs/heads/main.tar.gz",
+            .hash = "win32-25.0.28-preview-mX5pFWMt5QPTVIGh3r2-OpPunpcCCjApyRbA6Zn6WALH",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",

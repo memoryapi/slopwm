@@ -1,5 +1,5 @@
 const std = @import("std");
-const win32 = @import("win32.zig");
+const win32 = @import("win32").everything;
 const key_mod = @import("keybindings.zig");
 const HWND = win32.HWND;
 const RECT = win32.RECT;
@@ -19,7 +19,7 @@ pub fn getNextPresetScale(current_scale: f32) f32 {
 /// Backup state of windows for restoration upon shutdown
 pub const WindowState = struct {
     original_rect: RECT,
-    original_style: win32.LONG,
+    original_style: i32,
 };
 
 pub const ColumnWindow = struct {
@@ -580,12 +580,6 @@ pub const LayoutRenderer = struct {
 
         if (total_windows == 0) return;
 
-        const hdwp = win32.BeginDeferWindowPos(@intCast(total_windows)) orelse {
-            std.log.err("BeginDeferWindowPos failed", .{});
-            return error.BeginDeferWindowPosFailed;
-        };
-        errdefer _ = win32.EndDeferWindowPos(hdwp);
-
         const offscreen_x = work_area.left + 50000;
         const offscreen_y = work_area.top + 50000;
 
@@ -613,19 +607,29 @@ pub const LayoutRenderer = struct {
 
                 const pixel_width = @as(i32, @intFromFloat(@round(col.width_scale * @as(f32, @floatFromInt(mon_width)))));
 
-                const flags = if (win32.IsHungAppWindow(win.hwnd) != 0) win32.SWP_ASYNCWINDOWPOS else 0;
+                var flags = win32.SET_WINDOW_POS_FLAGS{
+                    .NOZORDER = 1,
+                    .NOACTIVATE = 1,
+                };
+                if (win32.IsHungAppWindow(win.hwnd) != 0) {
+                    flags.ASYNCWINDOWPOS = 1;
+                }
+
+                var success: i32 = 0;
                 if (in_viewport) {
                     const rel_start = start_x - viewport_offset;
                     const pixel_x = work_area.left + @as(i32, @intFromFloat(@round(rel_start * @as(f32, @floatFromInt(mon_width)))));
-                    _ = win32.DeferWindowPos(hdwp, win.hwnd, win32.HWND_TOP, pixel_x, current_y, pixel_width, win_height, flags);
+                    success = win32.SetWindowPos(win.hwnd, null, pixel_x, current_y, pixel_width, win_height, flags);
                 } else {
-                    _ = win32.DeferWindowPos(hdwp, win.hwnd, win32.HWND_TOP, offscreen_x, offscreen_y, pixel_width, win_height, flags);
+                    success = win32.SetWindowPos(win.hwnd, null, offscreen_x, offscreen_y, pixel_width, win_height, flags);
+                }
+
+                if (success == 0) {
+                    std.log.warn("SetWindowPos failed for window {*} with error: {}", .{win.hwnd, win32.GetLastError()});
                 }
                 current_y += win_height;
             }
         }
-
-        _ = win32.EndDeferWindowPos(hdwp);
     }
 
     pub fn parkInactiveWorkspaces(monitor: *Monitor) !void {
@@ -640,15 +644,6 @@ pub const LayoutRenderer = struct {
 
         for (wsm.workspaces.items, 0..) |ws, wi| {
             if (wi == active_idx) continue;
-
-            var ws_wins: usize = 0;
-            for (ws.columns.items) |col| {
-                ws_wins += col.windows.items.len;
-            }
-            if (ws_wins == 0) continue;
-
-            const hdwp = win32.BeginDeferWindowPos(@intCast(ws_wins)) orelse continue;
-            errdefer _ = win32.EndDeferWindowPos(hdwp);
 
             for (ws.columns.items) |col| {
                 var total_height_scale: f32 = 0.0;
@@ -669,12 +664,20 @@ pub const LayoutRenderer = struct {
                         win_height = work_area.bottom - current_y;
                     }
 
-                    const flags = if (win32.IsHungAppWindow(win.hwnd) != 0) win32.SWP_ASYNCWINDOWPOS else 0;
-                    _ = win32.DeferWindowPos(hdwp, win.hwnd, win32.HWND_TOP, offscreen_x, offscreen_y, pixel_width, win_height, flags);
+                    var flags = win32.SET_WINDOW_POS_FLAGS{
+                        .NOZORDER = 1,
+                        .NOACTIVATE = 1,
+                    };
+                    if (win32.IsHungAppWindow(win.hwnd) != 0) {
+                        flags.ASYNCWINDOWPOS = 1;
+                    }
+
+                    if (win32.SetWindowPos(win.hwnd, null, offscreen_x, offscreen_y, pixel_width, win_height, flags) == 0) {
+                        std.log.warn("SetWindowPos failed during parking for window {*} with error: {}", .{win.hwnd, win32.GetLastError()});
+                    }
                     current_y += win_height;
                 }
             }
-            _ = win32.EndDeferWindowPos(hdwp);
         }
     }
 };
@@ -695,6 +698,18 @@ pub fn isWindowManageable(hwnd: HWND) bool {
     var cloaked: u32 = 0;
     const hr = win32.DwmGetWindowAttribute(hwnd, win32.DWMWA_CLOAKED, &cloaked, @sizeOf(u32));
     if (hr == 0 and cloaked != 0) return false;
+
+    // Test if we have permission to position/resize this window (UIPI / Elevation check)
+    const test_flags = win32.SET_WINDOW_POS_FLAGS{
+        .NOMOVE = 1,
+        .NOSIZE = 1,
+        .NOZORDER = 1,
+        .NOACTIVATE = 1,
+    };
+    if (win32.SetWindowPos(hwnd, null, 0, 0, 0, 0, test_flags) == 0) {
+        std.log.warn("Ignoring elevated/unmanageable window {*} (error: {})", .{hwnd, win32.GetLastError()});
+        return false;
+    }
 
     return true;
 }
@@ -738,17 +753,18 @@ pub const WindowManager = struct {
 
     pub fn discoverMonitors(self: *WindowManager) !void {
         const enum_proc = struct {
-            fn cb(hmon: win32.HMONITOR, hdc: ?*anyopaque, rect: ?*win32.RECT, lparam: win32.LPARAM) callconv(win32.WINAPI) win32.BOOL {
+            fn cb(hmon: ?win32.HMONITOR, hdc: ?win32.HDC, rect: ?*win32.RECT, lparam: win32.LPARAM) callconv(.winapi) win32.BOOL {
                 _ = hdc; _ = rect;
+                const h = hmon orelse return win32.TRUE;
                 const wm = @as(*WindowManager, @ptrFromInt(@as(usize, @intCast(lparam))));
                 var mi = std.mem.zeroes(win32.MONITORINFOEXW);
-                mi.cbSize = @sizeOf(win32.MONITORINFOEXW);
-                if (win32.GetMonitorInfoW(hmon, &mi) != 0) {
+                mi.monitorInfo.cbSize = @sizeOf(win32.MONITORINFOEXW);
+                if (win32.GetMonitorInfoW(h, @ptrCast(&mi)) != 0) {
                     var len: usize = 0;
                     while (len < mi.szDevice.len and mi.szDevice[len] != 0) : (len += 1) {}
                     const device_name = mi.szDevice[0..len];
 
-                    var monitor = Monitor.init(wm.allocator, hmon, mi.rcWork, device_name) catch |err| {
+                    var monitor = Monitor.init(wm.allocator, h, mi.monitorInfo.rcWork, device_name) catch |err| {
                         std.log.err("Failed to init monitor: {}", .{err});
                         return win32.TRUE;
                     };
@@ -783,19 +799,20 @@ pub const WindowManager = struct {
         var ctx = EnumContext{ .displays = &active_displays, .allocator = self.allocator };
 
         const enum_callback = struct {
-            fn cb(hmon: win32.HMONITOR, hdc: ?*anyopaque, rect: ?*win32.RECT, lparam: win32.LPARAM) callconv(win32.WINAPI) win32.BOOL {
+            fn cb(hmon: ?win32.HMONITOR, hdc: ?win32.HDC, rect: ?*win32.RECT, lparam: win32.LPARAM) callconv(.winapi) win32.BOOL {
                 _ = hdc; _ = rect;
+                const h = hmon orelse return win32.TRUE;
                 const c = @as(*EnumContext, @ptrFromInt(@as(usize, @intCast(lparam))));
                 var mi = std.mem.zeroes(win32.MONITORINFOEXW);
-                mi.cbSize = @sizeOf(win32.MONITORINFOEXW);
-                if (win32.GetMonitorInfoW(hmon, &mi) != 0) {
+                mi.monitorInfo.cbSize = @sizeOf(win32.MONITORINFOEXW);
+                if (win32.GetMonitorInfoW(h, @ptrCast(&mi)) != 0) {
                     var len: usize = 0;
                     while (len < mi.szDevice.len and mi.szDevice[len] != 0) : (len += 1) {}
                     var name: [32]u16 = undefined;
                     std.mem.copyForwards(u16, &name, mi.szDevice[0..len]);
                     c.displays.append(c.allocator, .{
-                        .hmon = hmon,
-                        .rect = mi.rcWork,
+                        .hmon = h,
+                        .rect = mi.monitorInfo.rcWork,
                         .device_name = name,
                         .name_len = len,
                     }) catch {};
@@ -871,18 +888,22 @@ pub const WindowManager = struct {
         var pt = win32.POINT{ .x = 0, .y = 0 };
         if (win32.GetCursorPos(&pt) != 0) {
             const hmon = win32.MonitorFromPoint(pt, win32.MONITOR_DEFAULTTONEAREST);
-            for (self.monitors.items) |*m| {
-                if (m.hmon == hmon) return m;
+            if (hmon) |h| {
+                for (self.monitors.items) |*m| {
+                    if (m.hmon == h) return m;
+                }
             }
         }
         return if (self.monitors.items.len > 0) &self.monitors.items[0] else null;
     }
 
-    pub fn getMonitorForWindow(self: *WindowManager, hwnd: HWND) ?*Monitor {
-        if (hwnd == null) return null;
-        const hmon = win32.MonitorFromWindow(hwnd, win32.MONITOR_DEFAULTTONEAREST);
-        for (self.monitors.items) |*m| {
-            if (m.hmon == hmon) return m;
+    pub fn getMonitorForWindow(self: *WindowManager, hwnd: ?HWND) ?*Monitor {
+        const h = hwnd orelse return null;
+        const hmon = win32.MonitorFromWindow(h, win32.MONITOR_DEFAULTTONEAREST);
+        if (hmon) |h_m| {
+            for (self.monitors.items) |*m| {
+                if (m.hmon == h_m) return m;
+            }
         }
         return null;
     }
@@ -1013,8 +1034,6 @@ pub const WindowManager = struct {
     }
 
     pub fn onWindowFocused(self: *WindowManager, hwnd: HWND) void {
-        if (hwnd == null) return;
-
         var tracked = false;
         for (self.monitors.items) |*mon| {
             if (mon.workspace_manager.hasWindow(hwnd)) {
@@ -1046,7 +1065,13 @@ pub const WindowManager = struct {
             const state = entry.value_ptr.*;
             if (win32.IsWindow(hwnd) != 0) {
                 _ = win32.SetWindowLongW(hwnd, win32.GWL_STYLE, state.original_style);
-                const flags = (win32.SWP_NOZORDER | win32.SWP_NOACTIVATE) | (if (win32.IsHungAppWindow(hwnd) != 0) win32.SWP_ASYNCWINDOWPOS else 0);
+                var flags = win32.SET_WINDOW_POS_FLAGS{
+                    .NOZORDER = 1,
+                    .NOACTIVATE = 1,
+                };
+                if (win32.IsHungAppWindow(hwnd) != 0) {
+                    flags.ASYNCWINDOWPOS = 1;
+                }
                 _ = win32.SetWindowPos(
                     hwnd,
                     null,

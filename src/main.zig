@@ -1,5 +1,5 @@
 const std = @import("std");
-const win32 = @import("win32.zig");
+const win32 = @import("win32").everything;
 const wm_mod = @import("wm.zig");
 const key_mod = @import("keybindings.zig");
 const tray_mod = @import("tray.zig");
@@ -8,16 +8,13 @@ pub var g_wm: ?*wm_mod.WindowManager = null;
 
 fn setupConsole() void {
     if (win32.AllocConsole() != 0) {
-        const STD_INPUT_HANDLE: win32.DWORD = @bitCast(@as(i32, -10));
-        const h_stdin = win32.GetStdHandle(STD_INPUT_HANDLE);
+        const h_stdin = win32.GetStdHandle(win32.STD_INPUT_HANDLE);
         if (h_stdin != win32.INVALID_HANDLE_VALUE) {
-            var mode: win32.DWORD = 0;
+            var mode: win32.CONSOLE_MODE = undefined;
             if (win32.GetConsoleMode(h_stdin, &mode) != 0) {
-                const ENABLE_QUICK_EDIT_MODE: win32.DWORD = 0x0040;
-                const ENABLE_INSERT_MODE: win32.DWORD = 0x0020;
-                const ENABLE_EXTENDED_FLAGS: win32.DWORD = 0x0080;
-                mode &= ~(ENABLE_QUICK_EDIT_MODE | ENABLE_INSERT_MODE);
-                mode |= ENABLE_EXTENDED_FLAGS;
+                mode.ENABLE_QUICK_EDIT_MODE = 0;
+                mode.ENABLE_INSERT_MODE = 0;
+                mode.ENABLE_EXTENDED_FLAGS = 1;
                 _ = win32.SetConsoleMode(h_stdin, mode);
             }
         }
@@ -26,21 +23,21 @@ fn setupConsole() void {
 }
 
 fn winEventCallback(
-    h_win_event_hook: win32.HWINEVENTHOOK,
-    event: win32.DWORD,
-    hwnd: win32.HWND,
-    id_object: win32.LONG,
-    id_child: win32.LONG,
-    dw_event_thread: win32.DWORD,
-    dwms_event_time: win32.DWORD,
-) callconv(win32.WINAPI) void {
+    h_win_event_hook: ?win32.HWINEVENTHOOK,
+    event: u32,
+    hwnd: ?win32.HWND,
+    id_object: i32,
+    id_child: i32,
+    dw_event_thread: u32,
+    dwms_event_time: u32,
+) callconv(.winapi) void {
     _ = h_win_event_hook;
     _ = id_child;
     _ = dw_event_thread;
     _ = dwms_event_time;
 
-    if (id_object != win32.OBJID_WINDOW) return;
-    if (hwnd == null) return;
+    if (id_object != @intFromEnum(win32.OBJID_WINDOW)) return;
+    const h = hwnd orelse return;
 
     if (g_wm) |wm| {
         switch (event) {
@@ -50,7 +47,7 @@ fn winEventCallback(
             win32.EVENT_OBJECT_NAMECHANGE,
             win32.EVENT_SYSTEM_MINIMIZEEND,
             => {
-                wm.onWindowCreated(hwnd, false) catch |err| {
+                wm.onWindowCreated(h, false) catch |err| {
                     std.log.err("Error handling window created: {}", .{err});
                 };
             },
@@ -58,17 +55,17 @@ fn winEventCallback(
             win32.EVENT_OBJECT_HIDE,
             win32.EVENT_SYSTEM_MINIMIZESTART,
             => {
-                wm.onWindowDestroyed(hwnd);
+                wm.onWindowDestroyed(h);
             },
             win32.EVENT_SYSTEM_FOREGROUND => {
-                wm.onWindowFocused(hwnd);
+                wm.onWindowFocused(h);
             },
             else => {},
         }
     }
 }
 
-fn enumWindowsProc(hwnd: win32.HWND, lparam: win32.LPARAM) callconv(win32.WINAPI) win32.BOOL {
+fn enumWindowsProc(hwnd: win32.HWND, lparam: win32.LPARAM) callconv(.winapi) win32.BOOL {
     _ = lparam;
     if (g_wm) |wm| {
         wm.onWindowCreated(hwnd, true) catch |err| {
@@ -106,7 +103,7 @@ pub fn main() !void {
     );
 
     if (wm.event_hook == null) {
-        std.log.err("Failed to set win event hook. Error: {d}", .{win32.GetLastError()});
+        std.log.err("Failed to set win event hook. Error: {}", .{win32.GetLastError()});
         return error.SetWinEventHookFailed;
     }
     defer {
@@ -115,7 +112,7 @@ pub fn main() !void {
         }
     }
 
-    const h_inst = win32.GetModuleHandleW(null);
+    const h_inst = win32.GetModuleHandleW(null) orelse return error.GetModuleHandleFailed;
 
     // Initialize tray icon
     var tray = try tray_mod.TrayManager.init(h_inst, &wm);

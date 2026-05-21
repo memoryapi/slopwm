@@ -12,6 +12,8 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
+    const zigwin32_dep = b.dependency("zigwin32", .{});
+    exe.root_module.addImport("win32", zigwin32_dep.module("win32"));
 
     // Link Win32 libraries
     exe.root_module.linkSystemLibrary("user32", .{});
