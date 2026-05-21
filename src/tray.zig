@@ -2,6 +2,7 @@ const std = @import("std");
 const win32 = @import("win32").everything;
 const wm_mod = @import("wm.zig");
 const WindowManager = wm_mod.WindowManager;
+const root = @import("root");
 
 const IDI_TRAYICON = 1;
 const ID_TRAY_TOGGLE_CONSOLE = 1001;
@@ -49,11 +50,15 @@ pub const TrayManager = struct {
             .wm = wm,
         };
 
-        // Hide console window by default
+        // Hide console window by default if we allocated it ourselves
         const h_console = win32.GetConsoleWindow();
         if (h_console) |h| {
-            _ = win32.ShowWindow(h, win32.SW_HIDE);
-            self.is_console_visible = false;
+            if (root.g_console_allocated) {
+                _ = win32.ShowWindow(h, win32.SW_HIDE);
+                self.is_console_visible = false;
+            } else {
+                self.is_console_visible = true;
+            }
         }
 
         const class_name = std.unicode.utf8ToUtf16LeStringLiteral("SlopWMTrayHiddenWindowClass");

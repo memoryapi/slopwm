@@ -5,11 +5,16 @@ const key_mod = @import("keybindings.zig");
 const tray_mod = @import("tray.zig");
 
 pub var g_wm: ?*wm_mod.WindowManager = null;
+pub var g_console_allocated: bool = false;
 
 fn setupConsole() void {
     if (win32.AllocConsole() != 0) {
+        g_console_allocated = true;
+    }
+
+    if (win32.GetConsoleWindow()) |h_console| {
         const h_stdin = win32.GetStdHandle(win32.STD_INPUT_HANDLE);
-        if (h_stdin != win32.INVALID_HANDLE_VALUE) {
+        if (h_stdin != win32.INVALID_HANDLE_VALUE and @intFromPtr(h_stdin) != 0) {
             var mode: win32.CONSOLE_MODE = undefined;
             if (win32.GetConsoleMode(h_stdin, &mode) != 0) {
                 mode.ENABLE_QUICK_EDIT_MODE = 0;
@@ -18,7 +23,13 @@ fn setupConsole() void {
                 _ = win32.SetConsoleMode(h_stdin, mode);
             }
         }
-        std.log.info("SlopWM Console Started.", .{});
+
+        // Gray out the console window's Close button to prevent user clicks from terminating the WM
+        if (win32.GetSystemMenu(h_console, win32.FALSE)) |h_menu| {
+            _ = win32.EnableMenuItem(h_menu, win32.SC_CLOSE, .{ .GRAYED = 1, .DISABLED = 1 });
+        }
+
+        std.log.info("SlopWM Console configured (Allocated: {}).", .{g_console_allocated});
     }
 }
 
